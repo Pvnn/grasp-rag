@@ -74,7 +74,7 @@ class HybridCompressor:
         self,
         query: str,
         context: Union[str, List[str], List[SearchResult]],
-        coarse_ratio: float = 0.7,
+        coarse_ratio: float = 0.8,
         quitox_min_keep: int = 2,
         fine_threshold: float = 0.4,
         use_coarse: bool = True,
@@ -97,7 +97,17 @@ class HybridCompressor:
             sentence_doc_map = []
             source_docs = context
             for doc_idx, doc in enumerate(context):
-                doc_sents = self._split_sentences(doc.text)
+                full_text = f"{doc.title}\n{doc.text}" if getattr(doc, 'title', None) else doc.text
+
+                # === ADD THIS DEBUG BLOCK ===
+                if doc_idx == 0:  # Only print for the first document to avoid spam
+                    print("\n" + "="*50)
+                    print("[DEBUG] Location 1: Pre-Split Injection")
+                    print(f"Original Doc Title: {getattr(doc, 'title', 'NO TITLE FOUND')}")
+                    print(f"Injected full_text starts with:\n{full_text[:150]}...")
+                    print("="*50 + "\n")
+                # ==============================
+                doc_sents = self._split_sentences(full_text)
                 sentences.extend(doc_sents)
                 sentence_doc_map.extend([(doc_idx, doc)] * len(doc_sents))
 
@@ -135,12 +145,21 @@ class HybridCompressor:
             quitox_details = quitox_result.get("quitox_details", [])
             quitox_time    = time.time() - t1
 
-        # Locate this block inside HybridCompressor.compress()
         stage3_count = len(current_sentences)
 
         if use_fine:
-            # FIX: Create a list mapping each sentence to its specific parent document text!
-            parent_contexts = [doc_obj.text for _, doc_obj in current_doc_map]
+            parent_contexts = [
+                f"{doc_obj.title}\n{doc_obj.text}" if getattr(doc_obj, 'title', None) else doc_obj.text 
+                for _, doc_obj in current_doc_map
+            ]
+
+            # === ADD THIS DEBUG BLOCK ===
+            if len(parent_contexts) > 0:
+                print("\n" + "="*50)
+                print("[DEBUG] Location 2: Parent Context to Gemma")
+                print(f"First parent context sent to Gemma starts with:\n{parent_contexts[0][:150]}...")
+                print("="*50 + "\n")
+            # ==============================
             
             self.exit.threshold = fine_threshold
 

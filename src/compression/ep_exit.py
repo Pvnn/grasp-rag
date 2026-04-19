@@ -22,7 +22,7 @@ class EPExitCompressor:
         self,
         token,
         model_name="doubleyyh/exit-gemma-2b",
-        threshold=0.5,
+        threshold=0.4,
         embedding_model="all-MiniLM-L6-v2",
         similarity_threshold=0.45,
         locality_window=2
@@ -48,7 +48,7 @@ class EPExitCompressor:
     def classify_sentence(self, query, sentence, document):
         return self.exit.classify_sentence(query, sentence, document)
 
-    def build_similarity_graph(self, sentences):
+    def build_similarity_graph(self, sentences, parent_contexts=None):
         embeddings = self.embedder.encode(
             sentences, 
             convert_to_tensor=True,
@@ -67,6 +67,8 @@ class EPExitCompressor:
             limit = min(i + 1 + self.locality_window, n)
             for j in range(i + 1, limit):
                 if sim_matrix_cpu[i][j] >= self.similarity_threshold:
+                    if parent_contexts and parent_contexts[i] != parent_contexts[j]:
+                        continue
                     G.add_edge(i, j)
         return G
 
@@ -121,7 +123,7 @@ class EPExitCompressor:
                 "all_units": [], "kept_units": [], "removed_units": []
             }
 
-        graph = self.build_similarity_graph(sentences)
+        graph = self.build_similarity_graph(sentences, parent_contexts=parent_contexts)
         units = self.extract_evidence_units(graph, sentences)
 
         unit_texts = [unit.text for unit in units]

@@ -23,7 +23,13 @@ class QueryAwareRAG:
   def _run_original_baseline(self, query, docs):
     """Internal helper to track time for the original_docs generation."""
     start_time = time.time()
-    context = " ".join([doc['text'] for doc, _ in docs])
+    context_list = []
+    for doc, _ in docs:
+      title = doc.get('title')
+      text = doc['text']
+      context_list.append(f"{title}\n{text}" if title else text)
+        
+    context = " ".join(context_list)
     result = self.reader.generate_answer(query, context)
     end_time = time.time()
     
@@ -66,7 +72,8 @@ class QueryAwareRAG:
     total_compression_tokens = 0
     
     for i, (doc, score) in enumerate(retrieved_docs):
-      original_text = doc['text']
+      title = doc.get('title')
+      original_text = f"{title}\n{doc['text']}" if title else doc['text']
       result = self.compressor.compress(
         query=query, 
         context=original_text,

@@ -9,7 +9,7 @@ class ExitBaselineCompressor:
         self,
         token,
         model_name="doubleyyh/exit-gemma-2b",
-        threshold=0.5,
+        threshold=0.4,
         batch_size=2
     ):
         self.threshold = threshold
