@@ -32,7 +32,7 @@ class RAGReader:
         except requests.exceptions.Timeout:
             raise RuntimeError("Ollama took too long to respond. Is it running?")
 
-    def generate_answer(self, query, context, max_new_tokens=100, strict_mode=False):
+    def generate_answer(self, query, context, max_new_tokens=100, strict_mode=True):
         """
         Generate answer given query and context.
         

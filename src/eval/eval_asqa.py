@@ -4,34 +4,25 @@ import gc
 import torch
 import os
 import pandas as pd 
-import json
-import argparse
 from dotenv import load_dotenv
+import argparse
+import json
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from datasets import load_dataset
 from tabulate import tabulate
 
 from src.eval.eval_pipeline import GenerativeEvaluator
-from src.generation.reader import RAGReader
-
-# --- Import Unified Adapters ---
 from src.eval.adapters import (
-    NoOpCompressor, 
-    ExitAdapter, 
-    QuitoAdapter, 
-    HybridAdapter,
-    RefinerAdapter, 
-    RecompAdapter, 
-    LLMLingua2Adapter,
-    CompActAdapter, 
-    RecompExtractiveAdapter
+    NoOpCompressor, ExitAdapter, HybridAdapter,
+    RefinerAdapter, RecompAdapter, LLMLingua2Adapter,
+    CompActAdapter, RecompExtractiveAdapter
 )
 
-# --- Import Compressors ---
+# Import Models
 from src.compression.hybrid_compressor import HybridCompressor
-from src.compression.quitox_filter import QuitoxCoarseFilter
 from src.compression.baselines import (
     EXITCompressor,
     RefinerCompressor,
@@ -40,45 +31,67 @@ from src.compression.baselines import (
     CompactCompressor,
     RecompExtractiveCompressor,
 )
+from src.generation.reader import RAGReader
 
 
-def load_hotpotqa(dataset_path=None, n=20):
-    """Loads PRE-PROCESSED HotpotQA dataset and formats it for the evaluator."""
-    if not dataset_path or not Path(dataset_path).exists():
-        raise FileNotFoundError(f"Could not find HotpotQA dataset at {dataset_path}. Run preprocess_hotpotqa_retrieval.py first.")
+def load_asqa(dataset_path=None, n=20):
+    """Loads PRE-PROCESSED ALCE-ASQA dataset and formats it for the evaluator."""
+    dataset = []
+    
+    if dataset_path and Path(dataset_path).exists():
+        print(f"Loading local pre-processed ASQA dataset from {dataset_path}...")
+        with open(dataset_path, 'r', encoding='utf-8') as f:
+            # FIX: Our pre-processor saves a standard JSON array, so we load the whole file at once
+            dataset = json.load(f)
+    else:
+        raise FileNotFoundError(f"Could not find dataset at {dataset_path}. Please run the preprocess script.")
         
-    print(f"Loading local pre-processed HotpotQA dataset from {dataset_path}...")
-    with open(dataset_path, 'r', encoding='utf-8') as f:
-        dataset = json.load(f)
-
     formatted = []
     for i in range(min(n, len(dataset))):
         item = dataset[i]
         
-        # Extract the Top-10 passages saved by our preprocessor
+        # ALCE stores the ambiguous question here
+        question = item.get("ambiguous_question", item.get("question", ""))
+        
+        short_answers = []
+        if "qa_pairs" in item:
+            for qa in item["qa_pairs"]:
+                if "short_answers" in qa:
+                    short_answers.extend(qa["short_answers"])
+                    
+        long_answers = []
+        if "annotations" in item:
+            for ann in item["annotations"]:
+                if "long_answer" in ann:
+                    long_answers.append(ann["long_answer"])
+        
+        # Extract the Top-10 DPR passages saved by our preprocessor
         contexts = []
         for doc in item.get("docs", []):
-            title = doc.get("title", "")
-            text = doc.get("text", "")
+            title = doc.get("title", "Wikipedia")
+            # Grab the actual text payload
+            text = doc.get("text", "") 
             if text.strip():
                 # Format expected by GenerativeEvaluator: [title, [sentences]]
                 contexts.append([title, [text.strip()]])
             
         formatted.append({
-            "question": item.get("question", ""),
-            "answer": item.get("answer", ""),
-            "context": contexts
+            "question": question,
+            "answer": long_answers[0] if long_answers else "",
+            # For ASQA, we use the combined short_answers for the Exact Match metric
+            "acceptable_answers": short_answers, 
+            "context": contexts  
         })
         
     return formatted
 
 
 def run(dataset_path, n):
-    print(f"\nLoading HotpotQA dataset (n={n})...")
-    dataset = load_hotpotqa(dataset_path, n=n) 
+    print(f"\nLoading ASQA dataset (n={n})...")
+    dataset = load_asqa(dataset_path, n=n) 
     print(f"Loaded {len(dataset)} samples\n")
 
-    output_dir = Path(project_root) / "eval_results" / "hotpot_qa"
+    output_dir = Path(project_root) / "eval_results" / "asqa"
     output_dir.mkdir(exist_ok=True, parents=True)
     print(f"Results will be saved to: {output_dir}\n")
 
@@ -104,7 +117,7 @@ def run(dataset_path, n):
 
     def run_and_save(name, adapter):
         print(f"\n[{name}] Running Benchmark...")
-        # Pass top_k=10 so the evaluator matches the preprocessed docs seamlessly
+        # FIX: Pass top_k=10 to the evaluator so it maps the Excel files perfectly
         eval_result = GenerativeEvaluator(compressor=adapter, reader=reader).evaluate(dataset, top_k=10)
         
         df = pd.DataFrame(eval_result["details"])
@@ -118,7 +131,7 @@ def run(dataset_path, n):
     agg = run_and_save("NoOp", NoOpCompressor())
     results_table.append(format_metrics("NoOp", agg))
 
-    # --- 2. EXIT Baseline ---
+    # --- 2. EXIT Baseline  ---
     exit_model = EXITCompressor(
         token=token,
         base_model="doubleyyh/exit-gemma-2b",  
@@ -178,6 +191,7 @@ def run(dataset_path, n):
     gc.collect()
     torch.cuda.empty_cache()
 
+
     # --- Print & Save Final Results ---
     print("\n✅ Generative Benchmark Complete!\n")
     headers = ["Compressor", "EM %", "Token F1 %", "ROUGE-L %", "Disambig-F1 %", "Compression %", "Avg Input Tokens", "Latency (s)"]
@@ -185,10 +199,10 @@ def run(dataset_path, n):
     
     master_df = pd.DataFrame(results_table, columns=headers)
     master_df.to_csv(output_dir / "final_benchmark_results.csv", index=False)
-    print("\n✓ Master results saved to eval_results/hotpot_qa/final_benchmark_results.csv")
+    print("\n✓ Master results saved to eval_results/asqa/final_benchmark_results.csv")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run HotpotQA Generative Benchmark")
+    parser = argparse.ArgumentParser(description="Run ASQA Generative Benchmark")
     parser.add_argument(
         "-n", "--num_samples", 
         type=int, 
@@ -199,4 +213,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    run(dataset_path="data/hotpotqa/hotpotqa_top30_hybrid_500.json", n=args.num_samples)
+    run(dataset_path="data/asqa/asqa_top30_hybrid_500.json", n=args.num_samples)

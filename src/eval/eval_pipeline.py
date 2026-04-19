@@ -11,17 +11,12 @@ from src.eval.metrics import (
 )
 
 class GenerativeEvaluator:
-    """
-    Evaluates End-to-End RAG performance based on Final LLM Answer Correctness,
-    returning both aggregate metrics and granular per-query traces.
-    """
-
     def __init__(self, compressor, reader):
         self.compressor = compressor
         self.reader = reader
         self.disambig_eval = DisambigF1Evaluator()
 
-    def evaluate(self, dataset: List[Dict]) -> Dict:
+    def evaluate(self, dataset: List[Dict], top_k: int = 10) -> Dict:
         metrics = {
             "em": 0.0,
             "token_f1": 0.0,
@@ -36,33 +31,40 @@ class GenerativeEvaluator:
         total_comp_chars = 0
         start_time = time.time()
 
-        # List to hold detailed row-by-row data for Excel export
         detailed_traces = []
 
         for item in tqdm(dataset, desc="Evaluating Pipeline"):
             query = item["question"]
-            gt_answers = [item["answer"]]
+            
+            if "acceptable_answers" in item:
+                gt_answers = item["acceptable_answers"]
+            else:
+                gt_answers = [item["answer"]]
 
+            # 1. Load the PRE-RETRIEVED top-k documents from our offline script
             docs = []
-            for i, (title, sentences) in enumerate(item["context"]):
-                full_doc_text = " ".join(sentences)
-                docs.append(
-                    SearchResult(evi_id=i, docid=i, title=title, text=full_doc_text)
-                )
+            for i, context_item in enumerate(item["context"][:top_k]):
+                if isinstance(context_item, str):
+                    title = f"Doc {i+1}"
+                    full_doc_text = context_item
+                else:
+                    title, sentences = context_item
+                    full_doc_text = " ".join(sentences)
+                    
+                docs.append(SearchResult(evi_id=i, docid=i, title=title, text=full_doc_text))
 
             orig_text = "\n".join([d.text for d in docs])
             total_orig_chars += len(orig_text)
 
-            # 1. Compress
+            # 2. Compress the docs
             result = self.compressor.compress(query, docs)
             compressed_docs = result.get("compressed_docs", [])
             comp_text = "\n".join([d.text for d in compressed_docs])
             total_comp_chars += len(comp_text)
 
-            # 2. Generate Final Answer via LLM
+            # 3. Generate Final Answer via LLM
             reader_res = self.reader.generate_answer(query, comp_text, strict_mode=True)
             
-            # Extract Answer and Usage from dict
             if isinstance(reader_res, dict):
                 pred_answer = reader_res.get("answer", "")
                 usage = reader_res.get("usage", {})
@@ -73,7 +75,7 @@ class GenerativeEvaluator:
             q_prompt_tokens = usage.get("prompt_tokens", 0)
             q_comp_tokens = usage.get("completion_tokens", 0)
 
-            # 3. Calculate Query-Level Metrics
+            # 4. Calculate Query-Level Metrics (These inherently use the full list!)
             q_em = answer_em_correctness(pred_answer, gt_answers)
             q_token_f1 = answer_f1_correctness(pred_answer, gt_answers)
             q_rouge = answer_rouge_correctness(pred_answer, gt_answers, rouge_type="rougeL")
@@ -86,10 +88,10 @@ class GenerativeEvaluator:
             metrics["prompt_tokens"] += q_prompt_tokens
             metrics["completion_tokens"] += q_comp_tokens
 
-            # Build the Excel Row Data
+            # 5. Build the Excel Row Data
             row_data = {
                 "Query": query,
-                "Gold Answer": gt_answers[0],
+                "Gold Answer": str(gt_answers), 
                 "Generated Answer": pred_answer,
                 "EM Score": q_em,
                 "Token F1": q_token_f1,
@@ -98,11 +100,10 @@ class GenerativeEvaluator:
                 "Prompt Tokens": q_prompt_tokens,
                 "Gen Tokens": q_comp_tokens,
                 "Compression %": round((1 - (len(comp_text) / max(len(orig_text), 1))) * 100, 2),
-                "Final Prompt Context": comp_text,  # <--- NEW: The exact context string fed to the LLM
+                "Final Prompt Context": comp_text,
             }
 
-            # Map up to the top 4 Original and Compressed docs for side-by-side comparison
-            for doc_idx in range(4):
+            for doc_idx in range(top_k):
                 row_data[f"Orig Doc {doc_idx+1}"] = docs[doc_idx].text if doc_idx < len(docs) else ""
                 row_data[f"Comp Doc {doc_idx+1}"] = compressed_docs[doc_idx].text if doc_idx < len(compressed_docs) else ""
 

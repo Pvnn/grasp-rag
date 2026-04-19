@@ -1,157 +1,128 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
 import spacy
+from functools import lru_cache
+from typing import List, Tuple
 
 class ExitBaselineCompressor:
-    """
-    EXIT baseline compressor using pre-trained doubleyyh/exit-gemma-2b model.
-    Performs context-aware sentence-level extractive compression.
-    """
-    
     def __init__(
         self,
-        token, 
+        token,
         model_name="doubleyyh/exit-gemma-2b",
-        threshold=0.5
+        threshold=0.4,
+        batch_size=2
     ):
+        self.threshold = threshold
+        self.batch_size = batch_size
         print(f"Initializing ExitBaselineCompressor...")
-        print(f"Model: {model_name}")
-        print(f"Threshold: {threshold}")
-        
+
         if not torch.cuda.is_available():
-            print("⚠️  Warning: CUDA not available, using CPU (will be slow)")
+            print("⚠️  Warning: CUDA not available, using CPU")
         else:
             print(f"✓ Using GPU: {torch.cuda.get_device_name(0)}")
-        
-        self.threshold = threshold
-        
-        print("Loading tokenizer...")
-        self.tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b-it")
-        # Align tokenizer settings with official implementation
+
+        self.tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b-it", token=token)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "left"
-        
-        print("Loading model with 4-bit quantization...")
+
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4"
         )
-        
+
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             quantization_config=quantization_config,
-            device_map="auto",
+            device_map={"": 0},
             token=token
         )
-        
-        print("Loading spaCy sentence tokenizer...")
-        self.nlp = spacy.load("en_core_web_sm")
-        
-        print(f"✓ Compressor initialized on device: {self.model.device}\n")
-  
-    def decompose_sentences(self, text):
+        self.model.eval()
+        self.device = next(self.model.parameters()).device
+
+        self.yes_token_id = self.tokenizer.encode("Yes", add_special_tokens=False)[0]
+        self.no_token_id = self.tokenizer.encode("No", add_special_tokens=False)[0]
+
+        # Safety buffer for spacy on large docs
+        self.nlp = spacy.load("en_core_web_sm", disable=["tok2vec", "tagger", "parser", "attribute_ruler", "lemmatizer", "ner"])
+        self.nlp.enable_pipe("senter")
+        self.nlp.max_length = 2000000  
+
+    def decompose_sentences(self, text: str) -> List[str]:
         doc = self.nlp(text)
-        sentences = [sent.text.strip() for sent in doc.sents]
-        return [s for s in sentences if len(s) > 0]
-  
-    def classify_sentence(self, query, sentence, document):
-        """
-        Classify if a sentence is relevant to the query using the exact 
-        prompt template from the EXIT paper.
-        """
-        prompt = (
+        return [s.text.strip() for s in doc.sents if s.text.strip()]
+
+    @lru_cache(maxsize=1024)
+    def _generate_prompt(self, query: str, context: str, sentence: str) -> str:
+        # Fallback safety truncation, though rarely hit now since we pass individual parent docs
+        max_context_chars = 12000
+        safe_context = context[:max_context_chars] + ("..." if len(context) > max_context_chars else "")
+
+        return (
             f'<start_of_turn>user\n'
             f'Query:\n{query}\n'
-            f'Full context:\n{document}\n'
+            f'Full context:\n{safe_context}\n'
             f'Sentence:\n{sentence}\n'
             f'Is this sentence useful in answering the query? '
             f'Answer only "Yes" or "No".<end_of_turn>\n'
             f'<start_of_turn>model\n'
         )
-        
+
+    def _predict_batch(
+        self, queries: List[str], contexts: List[str], sentences: List[str]
+    ) -> Tuple[List[float], int]:
+        """Now accepts a list of contexts so each sentence maps to its parent doc!"""
+        prompts = [
+            self._generate_prompt(q, c, s)
+            for q, c, s in zip(queries, contexts, sentences)
+        ]
+
         inputs = self.tokenizer(
-            prompt, 
-            return_tensors="pt",
-            truncation=True,
-            max_length=4096
+            prompts, return_tensors="pt", padding=True, truncation=True,
+            max_length=4096, return_attention_mask=True
         )
-        
-        token_count = inputs["input_ids"].shape[1]
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-        
-        with torch.no_grad():
+        total_tokens = inputs["input_ids"].numel()
+        inputs = {k: v.to(self.device, non_blocking=True) for k, v in inputs.items()}
+
+        with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
             outputs = self.model(**inputs)
-            logits = outputs.logits[0, -1]
+            last_token_logits = outputs.logits[:, -1, :]
+            relevant_logits = torch.stack([
+                last_token_logits[:, self.yes_token_id],
+                last_token_logits[:, self.no_token_id]
+            ], dim=1)
+
+            probs = torch.softmax(relevant_logits, dim=1)
+            yes_probs = probs[:, 0].tolist()
+
+        return yes_probs, total_tokens
+
+    def compress(self, query: str, documents: list) -> list:
+        """Updated baseline to evaluate using parent contexts."""
+        all_sentences = []
+        all_contexts = []
         
-        yes_token = self.tokenizer.encode("Yes", add_special_tokens=False)[0]
-        no_token = self.tokenizer.encode("No", add_special_tokens=False)[0]
-        
-        probs = torch.softmax(logits[[yes_token, no_token]], dim=0)
-        yes_prob = probs[0].item()
-        
-        return yes_prob, token_count
-  
-    def compress(self, query, document, threshold=None):
-        """
-        Compress document by selecting query-relevant sentences.
-        """
-        active_threshold = threshold if threshold is not None else self.threshold
-        sentences = self.decompose_sentences(document)
-        
-        if len(sentences) == 0:
-            return ""
-        
-        selected_sentences = []
-        for sent in sentences:
-            score, _ = self.classify_sentence(query, sent, document)
-            if score > active_threshold:
-                selected_sentences.append(sent)
-        
-        return " ".join(selected_sentences)
-  
-    def compress_with_stats(self, query, document):
-        sentences = self.decompose_sentences(document)
-        
-        if len(sentences) == 0:
-            return {
-                "compressed_text": "",
-                "original_length": 0,
-                "compressed_length": 0,
-                "compression_ratio": 0.0,
-                "sentences_kept": 0,
-                "sentences_total": 0,
-                "total_tokens_consumed": 0,
-                "sentence_scores": []
-            }
-        
-        selected_sentences = []
-        sentence_scores = []
-        total_tokens_consumed = 0
-        
-        for sent in sentences:
-            score, token_count = self.classify_sentence(query, sent, document)
-            total_tokens_consumed += token_count
+        for doc in documents:
+            text = f"{doc.title}\n{doc.text}" if getattr(doc, 'title', None) else doc.text
+            sents = self.decompose_sentences(text)
+            all_sentences.extend(sents)
+            all_contexts.extend([text] * len(sents)) # Map sentence to its specific parent text
             
-            sentence_scores.append({
-                "sentence": sent,
-                "score": score,
-                "kept": score > self.threshold
-            })
+        if not all_sentences:
+            from src.eval.interfaces import SearchResult
+            return [SearchResult(evi_id=0, docid=0, title="", text="", score=1.0)]
             
-            if score > self.threshold:
-                selected_sentences.append(sent)
+        selected_sentences = []
+        for i in range(0, len(all_sentences), self.batch_size):
+            batch_sents = all_sentences[i : i + self.batch_size]
+            batch_queries = [query] * len(batch_sents)
+            batch_contexts = all_contexts[i : i + self.batch_size]
+            
+            yes_probs, _ = self._predict_batch(batch_queries, batch_contexts, batch_sents)
+            for sent, prob in zip(batch_sents, yes_probs):
+                if prob >= self.threshold:
+                    selected_sentences.append(sent)
         
-        compressed_text = " ".join(selected_sentences)
-        
-        return {
-            "compressed_text": compressed_text,
-            "original_length": len(document),
-            "compressed_length": len(compressed_text),
-            "compression_ratio": len(compressed_text) / len(document) if len(document) > 0 else 0,
-            "sentences_kept": len(selected_sentences),
-            "sentences_total": len(sentences),
-            "total_tokens_consumed": total_tokens_consumed,
-            "sentence_scores": sentence_scores
-        }
+        from src.eval.interfaces import SearchResult
+        return [SearchResult(evi_id=0, docid=0, title="", text=" ".join(selected_sentences), score=1.0)]

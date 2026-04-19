@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Component } from "react";
+import { useState, useEffect, useRef, useMemo, Component } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
@@ -24,7 +24,7 @@ class ErrorBoundary extends Component {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const API_BASE = "http://localhost:8000"; // Point this to your FastAPI server
+const API_BASE = "http://localhost:8000";
 
 async function fetchDatasets() {
   try {
@@ -37,13 +37,13 @@ async function fetchDatasets() {
   }
 }
 
-async function runPipelineAPI(query, enableFilter, enableComp) {
+async function runPipelineAPI(query, enableFilter, enableComp, topK) {
   const res = await fetch(`${API_BASE}/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query,
-      top_k: 4,
+      top_k: topK,
       compare_original: true,
       use_coarse: enableFilter,
       use_fine: enableComp
@@ -75,7 +75,7 @@ const PAL = {
 
 const STAGES = [
   { id: "query", num: "01", label: "Query Input", color: "blue", icon: "search", toggleable: false },
-  { id: "retrieve", num: "02", label: "Dense Retriever", color: "blue", icon: "list", toggleable: false },
+  { id: "retrieve", num: "02", label: "Hybrid Retriever", color: "blue", icon: "list", toggleable: false },
   { id: "filter", num: "03", label: "QUITO-X Coarse Filter", color: "violet", icon: "filter", toggleable: true },
   { id: "compress", num: "04", label: "EP-EXIT Compression", color: "green", icon: "compress", toggleable: true },
   { id: "llm", num: "05", label: "Reader LLM", color: "amber", icon: "cpu", toggleable: false },
@@ -134,7 +134,7 @@ function Toggle({ on, onChange, disabled }) {
   );
 }
 
-// ─── PIPELINE NODE (left column item) ────────────────────────────────────────
+// ─── PIPELINE NODE ────────────────────────────────────────────────────────────
 function PipelineNode({ stage, status, enabled, onToggle, running }) {
   const col = PAL[stage.color] || PAL.blue;
   const isActive = status === "active";
@@ -179,7 +179,7 @@ function PipelineNode({ stage, status, enabled, onToggle, running }) {
   );
 }
 
-// ─── OUTPUT PANEL (right column item) ────────────────────────────────────────
+// ─── OUTPUT PANEL ─────────────────────────────────────────────────────────────
 function OutputPanel({ status, enabled, stageId, children }) {
   if (stageId === "query") {
     return (
@@ -229,7 +229,7 @@ function QueryContent({ query }) {
       </div>
       <div style={{ flex: "0 0 auto", padding: "14px 17px", background: C.paperAlt, border: `1px solid ${C.borderMed}`, borderRadius: 6, minWidth: 180 }}>
         <div style={{ fontSize: 11, color: C.inkSub, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>Retriever Engine</div>
-        <div style={{ fontSize: 14, color: C.ink, lineHeight: 1.6 }}>Dense Vector<br />Retriever</div>
+        <div style={{ fontSize: 14, color: C.ink, lineHeight: 1.6 }}>Hybrid Vector<br />Retriever</div>
       </div>
     </div>
   );
@@ -260,20 +260,17 @@ function RetrieverContent({ docs }) {
 
 function FilterContent({ quitoxDetails }) {
   if (!quitoxDetails || quitoxDetails.length === 0) return null;
-
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: C.violet }}>QUITO-X T5 Analysis</div>
         <span style={{ fontSize: 13, color: C.inkMuted }}>— Cross Attention Based Coarse Filter</span>
       </div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {quitoxDetails.map((q, i) => {
           const detailsList = Array.isArray(q.details) ? q.details : [];
           const kept = detailsList.filter(d => d.retained);
           const removed = detailsList.filter(d => !d.retained);
-
           return (
             <div key={i} style={{ padding: "14px", borderRadius: 6, background: C.paperAlt, border: `1px solid ${C.borderMed}` }}>
               <div style={{ fontSize: 12, color: C.ink, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
@@ -282,7 +279,6 @@ function FilterContent({ quitoxDetails }) {
                   ({kept.length} Kept · {removed.length} Removed)
                 </span>
               </div>
-
               {kept.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   {kept.map((unit, j) => (
@@ -294,7 +290,6 @@ function FilterContent({ quitoxDetails }) {
                   ))}
                 </div>
               )}
-
               {removed.length > 0 && (
                 <div>
                   {removed.map((unit, j) => (
@@ -317,19 +312,16 @@ function FilterContent({ quitoxDetails }) {
 function CompressContent({ epExitDetails, ratio }) {
   if (!epExitDetails) return null;
   const pct = Math.round((+ratio || 0));
-
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: C.green }}>EP-EXIT Evidence Grouping</div>
         <span style={{ fontSize: 13, color: C.inkMuted }}>— Gemma-2B Binary Relevance Classification &nbsp;·&nbsp; <strong style={{ color: C.green }}>{pct}% overall reduction</strong></span>
       </div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {epExitDetails.map((doc, idx) => (
           <div key={idx} style={{ padding: "14px", border: `1px solid ${C.borderMed}`, borderRadius: 6, background: C.paperAlt }}>
             <div style={{ fontSize: 12, color: C.ink, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Document {doc.doc_index}</div>
-
             {doc.kept_units?.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 {doc.kept_units.map((unit, j) => {
@@ -345,7 +337,6 @@ function CompressContent({ epExitDetails, ratio }) {
                 })}
               </div>
             )}
-
             {doc.removed_units?.length > 0 && (
               <div>
                 {doc.removed_units.map((unit, j) => {
@@ -371,7 +362,6 @@ function CompressContent({ epExitDetails, ratio }) {
 function LLMContent({ metrics }) {
   if (!metrics) return null;
   const tokens = metrics.usage?.compressed_api_tokens || 0;
-
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
@@ -392,7 +382,6 @@ function AnswerContent({ compressedAns, originalAns, metrics }) {
   const cRatio = m.compression?.ratio_chars ? m.compression.ratio_chars.toFixed(1) : 0;
   const tRatio = m.compression?.ratio_tokens ? m.compression.ratio_tokens.toFixed(1) : 0;
   const tSaved = m.times?.net_time_saved ? m.times.net_time_saved.toFixed(2) : 0;
-
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -405,19 +394,18 @@ function AnswerContent({ compressedAns, originalAns, metrics }) {
           <div style={{ fontSize: 15, color: C.inkSub, lineHeight: 1.6, fontStyle: "italic" }}>{originalAns || "—"}</div>
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-        {[{ label: "Context Reduction", value: `${cRatio}%`, sub: "characters removed" },
-        { label: "Token Savings", value: `${tRatio}%`, sub: "API cost reduction" },
-        { label: "Time Differential", value: `${tSaved}s`, sub: "net latency impact" }].map(x => {
-          return (
-            <div key={x.label} style={{ padding: 16, background: C.paperAlt, border: `1px solid ${C.borderMed}`, borderRadius: 6, textAlign: "center" }}>
-              <div style={{ fontSize: 24, fontWeight: 600, color: C.ink, lineHeight: 1 }}>{x.value}</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: C.inkSub, marginTop: 5 }}>{x.label}</div>
-              <div style={{ fontSize: 12, color: C.inkMuted, marginTop: 3 }}>{x.sub}</div>
-            </div>
-          );
-        })}
+        {[
+          { label: "Context Reduction", value: `${cRatio}%`, sub: "characters removed" },
+          { label: "Token Savings", value: `${tRatio}%`, sub: "API cost reduction" },
+          { label: "Time Differential", value: `${tSaved}s`, sub: "net latency impact" }
+        ].map(x => (
+          <div key={x.label} style={{ padding: 16, background: C.paperAlt, border: `1px solid ${C.borderMed}`, borderRadius: 6, textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 600, color: C.ink, lineHeight: 1 }}>{x.value}</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: C.inkSub, marginTop: 5 }}>{x.label}</div>
+            <div style={{ fontSize: 12, color: C.inkMuted, marginTop: 3 }}>{x.sub}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -426,7 +414,11 @@ function AnswerContent({ compressedAns, originalAns, metrics }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function PipelineApp() {
   const [queries, setQueries] = useState([]);
-  const [query, setQuery] = useState("Loading queries...");
+  // query = confirmed selection used by the pipeline
+  // inputValue = what is typed in the search box (filter only)
+  const [query, setQuery] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [topK, setTopK] = useState(10);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState(-1);
   const [result, setResult] = useState(null);
@@ -436,6 +428,12 @@ function PipelineApp() {
 
   const dropRef = useRef(null);
   const abortRef = useRef(false);
+
+  // Memoized filter — only recomputes when queries list or inputValue changes
+  const filteredQueries = useMemo(
+    () => queries.filter(q => q.toLowerCase().includes(inputValue.toLowerCase())),
+    [queries, inputValue]
+  );
 
   useEffect(() => {
     fetchDatasets().then(data => {
@@ -447,6 +445,7 @@ function PipelineApp() {
         if (allQueries.length > 0) {
           setQueries(allQueries);
           setQuery(allQueries[0]);
+          setInputValue(allQueries[0]);
         }
       }
     });
@@ -470,7 +469,7 @@ function PipelineApp() {
   }
 
   async function handleRun() {
-    if (running || queries.length === 0) return;
+    if (running || !query.trim()) return;
     abortRef.current = false;
     setRunning(true);
     setResult(null);
@@ -478,11 +477,10 @@ function PipelineApp() {
     const step = async (i, ms) => { setPhase(i); await sleep(ms); return abortRef.current; };
 
     if (await step(0, 420)) return;
-
     setPhase(1);
 
     try {
-      const data = await runPipelineAPI(query, enableFilter, enableComp);
+      const data = await runPipelineAPI(query, enableFilter, enableComp, topK);
       if (abortRef.current) return;
       setResult(data);
 
@@ -501,7 +499,9 @@ function PipelineApp() {
 
   function handleReset() {
     abortRef.current = true;
-    setResult(null); setPhase(-1); setRunning(false);
+    setResult(null);
+    setPhase(-1);
+    setRunning(false);
   }
 
   const isComplete = phase === 99 && !running && !!result;
@@ -516,30 +516,25 @@ function PipelineApp() {
         .outer-wrap { width:100%; max-width:1400px; margin:0 auto; padding:0 32px; }
         .rsp-qopt:hover { background:${C.paperAlt}!important; color:${C.ink}!important; }
         .rsp-run { transition:all 0.15s; cursor:pointer; }
-        .rsp-run:not([disabled]):hover  { filter:brightness(1.05); }
+        .rsp-run:not([disabled]):hover { filter:brightness(1.05); }
         ::-webkit-scrollbar { width:6px; }
         ::-webkit-scrollbar-thumb { background:${C.borderMed}; border-radius:99px; }
       `}</style>
 
-      {/* ── CLEAN, MODERN HEADER ── */}
+      {/* ── HEADER ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(255,255,255,0.85)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
         <div className="outer-wrap">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
-            {/* Left: Clean Branding */}
             <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: C.ink, letterSpacing: "-0.01em" }}>Query-Aware RAG</div>
               <div style={{ fontSize: 13, color: C.inkMuted, fontWeight: 400 }}>Pipeline Visualizer</div>
             </div>
-
-            {/* Right: Minimal Status Indicators */}
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <div style={{ display: "flex", gap: 12 }}>
                 {!enableFilter && <span style={{ fontSize: 12, color: C.inkMuted, textDecoration: "line-through" }}>QUITO-X</span>}
                 {!enableComp && <span style={{ fontSize: 12, color: C.inkMuted, textDecoration: "line-through" }}>EP-EXIT</span>}
               </div>
-
               <div style={{ width: 1, height: 16, background: C.borderMed }} />
-
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {isComplete ? (
                   <><div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} /><span style={{ fontSize: 13, color: C.ink, fontWeight: 500 }}>Complete</span></>
@@ -569,7 +564,7 @@ function PipelineApp() {
         </div>
 
         <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-          {/* ════ LEFT COLUMN ════ */}
+          {/* LEFT COLUMN */}
           <div style={{ width: 380, flexShrink: 0, display: "flex", flexDirection: "column" }}>
             {STAGES.map((stage, i) => {
               const st = statusOf(i);
@@ -594,12 +589,11 @@ function PipelineApp() {
 
           <div style={{ width: 1, background: C.border, margin: "0 24px", flexShrink: 0 }} />
 
-          {/* ════ RIGHT COLUMN ════ */}
+          {/* RIGHT COLUMN */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             {STAGES.map((stage, i) => {
               const st = statusOf(i);
               const enabled = stageEnabled(stage.id);
-
               let content = null;
               try {
                 if (stage.id === "query") {
@@ -616,7 +610,6 @@ function PipelineApp() {
               } catch (e) {
                 content = <div style={{ fontSize: 13, color: C.red, fontFamily: "monospace" }}>Error: {String(e)}</div>;
               }
-
               const isLast = i === STAGES.length - 1;
               return (
                 <div key={stage.id} style={{ display: "flex", flexDirection: "column", marginBottom: isLast ? 0 : 32 }}>
@@ -629,7 +622,7 @@ function PipelineApp() {
           </div>
         </div>
 
-        {/* ── Final Answer ── */}
+        {/* Final Answer */}
         {isComplete && result && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} style={{ marginTop: 32 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -647,29 +640,97 @@ function PipelineApp() {
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", borderTop: `1px solid ${C.border}` }}>
         <div className="outer-wrap">
           <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "16px 0" }}>
+
+            {/* Combobox — input filters list, selection sets query */}
             <div ref={dropRef} style={{ flex: 1, position: "relative", maxWidth: 800 }}>
-              <button disabled={running || queries.length === 0} onClick={() => setDropOpen(o => !o)}
-                style={{ width: "100%", padding: "12px 18px", borderRadius: 6, background: C.paper, border: `1px solid ${C.borderMed}`, color: C.ink, fontSize: 16, fontWeight: 500, textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: running ? "not-allowed" : "pointer", outline: "none", transition: "border-color 0.15s" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = C.inkMuted}
-                onMouseLeave={e => e.currentTarget.style.borderColor = C.borderMed}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }}>{query}</span>
-                <span style={{ transform: dropOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}><Ico n="chevron" sz={15} c={C.inkMuted} /></span>
-              </button>
+
+              <div style={{ display: "flex", alignItems: "center", background: C.paper, border: `1.5px solid ${dropOpen ? C.blue : C.borderMed}`, borderRadius: 6, transition: "border-color 0.15s" }}>
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={e => {
+                    setInputValue(e.target.value);
+                    setDropOpen(true);
+                  }}
+                  onFocus={() => setDropOpen(true)}
+                  disabled={running}
+                  placeholder="Search queries…"
+                  style={{ flex: 1, padding: "12px 18px", border: "none", background: "transparent", color: C.ink, fontSize: 15, fontWeight: 500, outline: "none", width: "100%" }}
+                />
+                {/* Clear search button — only clears the filter, not the selection */}
+                {inputValue && (
+                  <button
+                    onClick={() => { setInputValue(""); setDropOpen(true); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 8px", display: "flex", color: C.inkMuted }}
+                  >
+                    <Ico n="x" sz={14} />
+                  </button>
+                )}
+                <div style={{ padding: "0 14px", cursor: "pointer", display: "flex" }} onClick={() => setDropOpen(d => !d)}>
+                  <div style={{ transform: dropOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s", display: "flex" }}>
+                    <Ico n="chevron" sz={15} c={C.inkMuted} />
+                  </div>
+                </div>
+              </div>
+
               {dropOpen && (
                 <div style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, right: 0, zIndex: 200, background: C.paper, border: `1px solid ${C.borderMed}`, borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", maxHeight: "40vh", overflowY: "auto" }}>
-                  {queries.map((q, idx) => (
-                    <button key={idx} className="rsp-qopt" onClick={() => { setQuery(q); setDropOpen(false); handleReset(); }}
-                      style={{ display: "block", width: "100%", padding: "12px 16px", cursor: "pointer", border: "none", background: q === query ? C.paperAlt : "transparent", color: C.ink, fontSize: 14, textAlign: "left", fontWeight: q === query ? 500 : 400, transition: "background 0.1s" }}>
-                      {q}
-                    </button>
-                  ))}
+                  {filteredQueries.length === 0 ? (
+                    <div style={{ padding: "12px 16px", color: C.inkMuted, fontSize: 14 }}>
+                      No queries match "{inputValue}"
+                    </div>
+                  ) : (
+                    // Cap render at 50 to keep DOM small
+                    filteredQueries.slice(0, 50).map((q, idx) => (
+                      <button
+                        key={idx}
+                        className="rsp-qopt"
+                        onClick={() => {
+                          setQuery(q);
+                          setInputValue(q);
+                          setDropOpen(false);
+                          handleReset();
+                        }}
+                        style={{
+                          display: "block", width: "100%", padding: "11px 16px",
+                          cursor: "pointer", border: "none",
+                          background: q === query ? C.blueL : "transparent",
+                          color: q === query ? C.blue : C.ink,
+                          fontSize: 14, textAlign: "left",
+                          fontWeight: q === query ? 600 : 400,
+                          borderLeft: q === query ? `3px solid ${C.blue}` : "3px solid transparent",
+                          transition: "background 0.1s"
+                        }}
+                      >
+                        {q}
+                      </button>
+                    ))
+                  )}
+                  {filteredQueries.length > 50 && (
+                    <div style={{ padding: "8px 16px", color: C.inkMuted, fontSize: 12, borderTop: `1px solid ${C.border}` }}>
+                      Showing 50 of {filteredQueries.length} — type to narrow results
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <button className="rsp-run" disabled={running || queries.length === 0} onClick={handleRun}
+
+            {/* Top-K */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.paper, border: `1px solid ${C.borderMed}`, borderRadius: 6, padding: "0 12px" }}>
+              <span style={{ fontSize: 13, color: C.inkMuted, fontWeight: 600, letterSpacing: "0.05em" }}>TOP-K</span>
+              <input
+                type="number" min={1} max={50} value={topK}
+                onChange={e => setTopK(parseInt(e.target.value) || 10)}
+                disabled={running}
+                style={{ width: 45, padding: "10px 0", border: "none", background: "transparent", color: C.ink, fontSize: 15, fontWeight: 600, outline: "none", textAlign: "center" }}
+              />
+            </div>
+
+            <button className="rsp-run" disabled={running || !query.trim()} onClick={handleRun}
               style={{ padding: "12px 28px", borderRadius: 6, border: "none", background: running ? C.inkMuted : C.ink, color: "white", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", minWidth: 160, justifyContent: "center" }}>
               {running ? <><Spin color="white" sz={14} />&nbsp;Processing…</> : "Run Pipeline"}
             </button>
+
             {(isComplete || phase > -1) && (
               <button onClick={handleReset} style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSub, fontSize: 14, padding: "0 8px", fontWeight: 500 }}>
                 Reset

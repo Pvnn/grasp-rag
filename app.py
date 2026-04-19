@@ -100,43 +100,47 @@ def load_dataset(request: LoadDatasetRequest):
 
 @app.post("/query")
 def run_query(request: QueryRequest):
-  """Executes the pipeline with Auto-Indexing."""
-  global current_indexed_key
-  
-  # 1. Figure out which dataset this query belongs to
-  dataset_id = query_to_dataset.get(request.query)
-  if not dataset_id:
-    # Fallback to general JWST index if user typed a custom query
-    dataset_id = "jwst"
-      
-  ds_info = demo_data[dataset_id]
-  
-  # 2. Determine which documents need to be in the index
-  if request.query in ds_info.get("query_documents", {}):
-    docs_to_index = ds_info["query_documents"][request.query]
-    index_key = f"query_{request.query}"
-  else:
-    docs_to_index = ds_info.get("global_documents", [])
-    index_key = f"global_{dataset_id}"
-      
-  # 3. AUTO-INDEXING: If the retriever doesn't have these docs, index them now
-  if current_indexed_key != index_key:
-    print(f"\n[Auto-Index] Swapping index for key: {index_key}...")
-    pipeline.retriever.index_documents(docs_to_index)
-    current_indexed_key = index_key
+    """Executes the pipeline with Auto-Indexing."""
+    global current_indexed_key
+    
+    # 1. Figure out which dataset this query belongs to
+    dataset_id = query_to_dataset.get(request.query)
+    
+    if not dataset_id:
+        # FIX: Fallback to the first available loaded dataset if user typed a custom query
+        dataset_id = list(demo_data.keys())[0] if demo_data else None
+        
+    if not dataset_id:
+        raise HTTPException(status_code=500, detail="No datasets available in backend.")
+        
+    ds_info = demo_data[dataset_id]
+    
+    # 2. Determine which documents need to be in the index
+    if request.query in ds_info.get("query_documents", {}):
+        docs_to_index = ds_info["query_documents"][request.query]
+        index_key = f"query_{request.query}"
+    else:
+        docs_to_index = ds_info.get("global_documents", [])
+        index_key = f"global_{dataset_id}"
+        
+    # 3. AUTO-INDEXING: If the retriever doesn't have these docs, index them now
+    if current_indexed_key != index_key:
+        print(f"\n[Auto-Index] Swapping index for key: {index_key}...")
+        pipeline.retriever.index_documents(docs_to_index)
+        current_indexed_key = index_key
 
-  # 4. Run the Pipeline
-  try:
-    result = pipeline.run(
-      query=request.query,
-      top_k=request.top_k,
-      compare_original=request.compare_original,
-      use_coarse=request.use_coarse,
-      use_fine=request.use_fine
-    )
-    return result
-  except Exception as e:
-    raise HTTPException(status_code=500, detail=str(e))
+    # 4. Run the Pipeline
+    try:
+        result = pipeline.run(
+            query=request.query,
+            top_k=request.top_k,
+            compare_original=request.compare_original,
+            use_coarse=request.use_coarse,
+            use_fine=request.use_fine
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 if __name__ == "__main__":
   import uvicorn

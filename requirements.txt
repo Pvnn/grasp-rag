@@ -6,8 +6,10 @@ bitsandbytes>=0.41.0
 trl>=0.7.6
 datasets>=2.14.7
 # llm-lingua>=0.2.1
+llmlingua
 sentence-transformers>=2.2.2
 faiss-cpu>=1.7.4
+hf_xet
 
 # Text processing
 spacy>=3.7.0
@@ -62,9 +64,11 @@ python-dotenv
 fastapi
 uvicorn
 
+# Evaluation
 tabulate
 hf_xet
 rouge_score
+llmlingua
 # Pre-download spacy model
 # Run after installing requirements:
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118

@@ -200,3 +200,9 @@ configs/api_keys.yaml
 ################################
 submission/
 *.submission
+
+cache/
+models/
+*.bin
+*.pt
+*.safetensors
