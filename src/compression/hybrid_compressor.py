@@ -97,7 +97,8 @@ class HybridCompressor:
             sentence_doc_map = []
             source_docs = context
             for doc_idx, doc in enumerate(context):
-                doc_sents = self._split_sentences(doc.text)
+                full_text = f"{doc.title}\n{doc.text}" if getattr(doc, 'title', None) else doc.text
+                doc_sents = self._split_sentences(full_text)
                 sentences.extend(doc_sents)
                 sentence_doc_map.extend([(doc_idx, doc)] * len(doc_sents))
 
@@ -139,8 +140,10 @@ class HybridCompressor:
         stage3_count = len(current_sentences)
 
         if use_fine:
-            # FIX: Create a list mapping each sentence to its specific parent document text!
-            parent_contexts = [doc_obj.text for _, doc_obj in current_doc_map]
+            parent_contexts = [
+                f"{doc_obj.title}\n{doc_obj.text}" if getattr(doc_obj, 'title', None) else doc_obj.text 
+                for _, doc_obj in current_doc_map
+            ]
             
             self.exit.threshold = fine_threshold
 
