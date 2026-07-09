@@ -9,6 +9,7 @@ from src.retrieval.retriever import DenseRetriever
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.compression.hybrid_compressor import HybridCompressor
 from src.generation.gemma_reader import GemmaRAGReader
+from src.generation.reader import RAGReader
 
 class QueryAwareRAG:
   def __init__(self, token):
@@ -16,7 +17,7 @@ class QueryAwareRAG:
     
     self.retriever = HybridRetriever()
     self.compressor = HybridCompressor(exit_token=token)
-    self.reader = GemmaRAGReader()
+    self.reader = RAGReader()
     
     print("✓ Pipeline initialized\n")
   

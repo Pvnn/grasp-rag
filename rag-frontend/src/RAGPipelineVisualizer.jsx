@@ -366,7 +366,7 @@ function LLMContent({ metrics }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: C.amber }}>Reader Engine Input</div>
-        <span style={{ fontSize: 13, color: C.inkMuted }}>— Generated via Gemma-3-27b-it</span>
+        <span style={{ fontSize: 13, color: C.inkMuted }}>— Generated via Llama3.1-8B</span>
       </div>
       <div style={{ padding: "15px 17px", background: C.paperAlt, border: `1px solid ${C.borderMed}`, borderRadius: 6 }}>
         <div style={{ fontSize: 11, color: C.inkSub, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Context Window Tokens</div>
