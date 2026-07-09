@@ -1,6 +1,6 @@
-################################
+
 # Python Environments
-################################
+
 env/
 venv/
 ENV/
@@ -9,9 +9,9 @@ venv.bak/
 .venv/
 .Python
 
-################################
+
 # Python Cache / Bytecode
-################################
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,14 +19,14 @@ __pycache__/
 *.pyo
 *.pyd
 
-################################
+
 # C Extensions
-################################
+
 *.so
 
-################################
+
 # Distribution / Packaging
-################################
+
 build/
 dist/
 develop-eggs/
@@ -45,15 +45,15 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-################################
+
 # PyInstaller
-################################
+
 *.manifest
 *.spec
 
-################################
+
 # Testing / Coverage
-################################
+
 htmlcov/
 .tox/
 .nox/
@@ -66,15 +66,15 @@ coverage.xml
 .pytest_cache/
 .hypothesis/
 
-################################
+
 # Jupyter
-################################
+
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 
-################################
+
 # IDEs / Editors
-################################
+
 .idea/
 .vscode/
 *.iml
@@ -85,18 +85,18 @@ notebooks/.ipynb_checkpoints/
 .spyproject
 .ropeproject
 
-################################
+
 # Type Checking
-################################
+
 .mypy_cache/
 .dmypy.json
 dmypy.json
 .pytype/
 .pyre/
 
-################################
-# DATA (IMPORTANT SECTION)
-################################
+
+# DATA
+
 # Ignore all raw & processed datasets
 data/
 data/**
@@ -104,15 +104,12 @@ data/**
 # Allow empty placeholders
 !data/.gitkeep
 
-################################
-# BUT TRACK DATA PROCESSING CODE
-################################
 !src/data/
 !src/data/*.py
 
-################################
+
 # Model Checkpoints & Weights
-################################
+
 checkpoints/
 models/
 *.pt
@@ -125,9 +122,9 @@ models/
 *.pkl
 *.pickle
 
-################################
+
 # Outputs / Logs / Experiments
-################################
+
 results/
 outputs/
 logs/
@@ -138,17 +135,17 @@ tensorboard_logs/
 *.log
 *.out
 
-################################
+
 # HuggingFace / Torch Cache
-################################
+
 .cache/
 huggingface_cache/
 transformers_cache/
 torch_cache/
 
-################################
+
 # Temporary / OS Files
-################################
+
 *.swp
 *.swo
 *~
@@ -158,9 +155,9 @@ Desktop.ini
 *.tmp
 *.temp
 
-################################
+
 # Archives
-################################
+
 *.tar
 *.tar.gz
 *.tgz
@@ -168,36 +165,36 @@ Desktop.ini
 *.7z
 *.rar
 
-################################
+
 # Databases
-################################
+
 *.db
 *.sqlite
 *.sqlite3
 
-################################
+
 # Environment Variables
-################################
+
 .env
 .envC.env.local
 .env.*.local
 
-################################
+
 # Docs / Site
-################################
+
 docs/_build/
 site/
 src/eval_results/
 
-################################
+
 # Secrets (never commit)
-################################
+
 configs/secrets.yaml
 configs/api_keys.yaml
 
-################################
+
 # Submissions
-################################
+
 submission/
 *.submission
 
@@ -206,3 +203,5 @@ models/
 *.bin
 *.pt
 *.safetensors
+
+docs/
