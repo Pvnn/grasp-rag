@@ -91,7 +91,7 @@ class QuitoxCoarseFilter:
                 )
         
             # Extract Cross-Attentions
-            attentions = outputs.cross_attentions[-1][:, :, 0, :].mean(dim=1).cpu().numpy()
+            attentions = outputs.cross_attentions[-1][:, :, 0, :].mean(dim=1).float().cpu().numpy()
             
             # Map batch attentions back to the global token array
             for j, chunk_attn in enumerate(attentions):
