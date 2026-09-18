@@ -22,6 +22,8 @@ SCRIPTS=(
     "scripts/preprocess_hotpotqa.py"
     "scripts/preprocess_asqa.py"
     "scripts/preprocess_nq.py"
+    "scripts/preprocess_musique.py"
+    "scripts/preprocess_popqa.py"
 )
 TOTAL_SCRIPTS=${#SCRIPTS[@]}
 
@@ -48,12 +50,6 @@ for i in "${!SCRIPTS[@]}"; do
         echo "[SUCCESS] $SCRIPT_NAME completed successfully." | tee -a "$MASTER_LOG"
     fi
     
-    # Sleep for 1 minute (60s) after every 2 scripts, unless it's the last script
-    SCRIPT_NUM=$((i + 1))
-    if [ $((SCRIPT_NUM % 2)) -eq 0 ] && [ $SCRIPT_NUM -ne $TOTAL_SCRIPTS ]; then
-        echo "[WAIT] Sleeping for 60 seconds to let the system cool down..." | tee -a "$MASTER_LOG"
-        sleep 60
-    fi
 done
 
 echo -e "\n======================================================" | tee -a "$MASTER_LOG"

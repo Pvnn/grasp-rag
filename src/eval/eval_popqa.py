@@ -53,11 +53,11 @@ from src.compression.baselines import (
 
 
 def load_hotpotqa(dataset_path=None, n=20):
-    """Loads PRE-PROCESSED HotpotQA dataset and formats it for the evaluator."""
+    """Loads PRE-PROCESSED PopQA dataset and formats it for the evaluator."""
     if not dataset_path or not Path(dataset_path).exists():
-        raise FileNotFoundError(f"Could not find HotpotQA dataset at {dataset_path}. Run preprocess_hotpotqa_retrieval.py first.")
+        raise FileNotFoundError(f"Could not find PopQA dataset at {dataset_path}. Run preprocess_hotpotqa_retrieval.py first.")
         
-    print(f"Loading local pre-processed HotpotQA dataset from {dataset_path}...")
+    print(f"Loading local pre-processed PopQA dataset from {dataset_path}...")
     with open(dataset_path, 'r', encoding='utf-8') as f:
         dataset = json.load(f)
 
@@ -84,11 +84,11 @@ def load_hotpotqa(dataset_path=None, n=20):
 
 
 def run(dataset_path, n):
-    print(f"\nLoading HotpotQA dataset (n={n})...")
+    print(f"\nLoading PopQA dataset (n={n})...")
     dataset = load_hotpotqa(dataset_path, n=n) 
     print(f"Loaded {len(dataset)} samples\n")
 
-    output_dir = Path(project_root) / "eval_results" / "hotpot_qa"
+    output_dir = Path(project_root) / "eval_results" / "popqa"
     output_dir.mkdir(exist_ok=True, parents=True)
     print(f"Results will be saved to: {output_dir}\n")
 
@@ -125,35 +125,35 @@ def run(dataset_path, n):
         return eval_result["aggregate"]
     
     # --- 1. NoOp Baseline ---
-    agg = run_and_save("NoOp", NoOpCompressor())
-    results_table.append(format_metrics("NoOp", agg))
+    # agg = run_and_save("NoOp", NoOpCompressor())
+    # results_table.append(format_metrics("NoOp", agg))
 
     # --- 2. EXIT Baseline ---
-    exit_model = EXITCompressor(
-        token=token,
-        base_model="doubleyyh/exit-gemma-2b"
-    )
-    agg = run_and_save("EXIT", ExitAdapter(exit_model))
-    results_table.append(format_metrics("EXIT", agg))
-    del exit_model
-    gc.collect()
-    torch.cuda.empty_cache()
+    # exit_model = EXITCompressor(
+    #     token=token,
+    #     base_model="doubleyyh/exit-gemma-2b"
+    # )
+    # agg = run_and_save("EXIT", ExitAdapter(exit_model))
+    # results_table.append(format_metrics("EXIT", agg))
+    # del exit_model
+    # gc.collect()
+    # torch.cuda.empty_cache()
 
     # --- 3. RECOMP Extractive Baseline ---
-    recomp_extr = RecompExtractiveCompressor()
-    agg = run_and_save("RECOMP_EXTR", RecompExtractiveAdapter(recomp_extr))
-    results_table.append(format_metrics("RECOMP_EXTR", agg))
-    del recomp_extr
-    gc.collect()
-    torch.cuda.empty_cache()
+    # recomp_extr = RecompExtractiveCompressor()
+    # agg = run_and_save("RECOMP_EXTR", RecompExtractiveAdapter(recomp_extr))
+    # results_table.append(format_metrics("RECOMP_EXTR", agg))
+    # del recomp_extr
+    # gc.collect()
+    # torch.cuda.empty_cache()
 
     # --- 4. LLMLingua2 Baseline ---
-    llmlingua2 = LLMLingua2Compressor()
-    agg = run_and_save("LLMLingua-2", LLMLingua2Adapter(llmlingua2))
-    results_table.append(format_metrics("LLMLingua-2", agg))
-    del llmlingua2
-    gc.collect()
-    torch.cuda.empty_cache()
+    # llmlingua2 = LLMLingua2Compressor()
+    # agg = run_and_save("LLMLingua-2", LLMLingua2Adapter(llmlingua2))
+    # results_table.append(format_metrics("LLMLingua-2", agg))
+    # del llmlingua2
+    # gc.collect()
+    # torch.cuda.empty_cache()
 
     # --- 5. CompAct Baseline ---
     # compact = CompactCompressor(token=token)
@@ -180,12 +180,12 @@ def run(dataset_path, n):
     # torch.cuda.empty_cache()
 
     # --- 8. Hybrid Pipeline ---
-    hybrid = HybridCompressor(exit_token=token)
-    agg = run_and_save("HYBRID", HybridAdapter(hybrid))
-    results_table.append(format_metrics("HYBRID", agg))
-    del hybrid
-    gc.collect()
-    torch.cuda.empty_cache()
+    # hybrid = HybridCompressor(exit_token=token)
+    # agg = run_and_save("HYBRID", HybridAdapter(hybrid))
+    # results_table.append(format_metrics("HYBRID", agg))
+    # del hybrid
+    # gc.collect()
+    # torch.cuda.empty_cache()
 
 
     # --- 9. FILCo Baseline ---
@@ -235,10 +235,10 @@ def run(dataset_path, n):
     
     master_df = pd.DataFrame(results_table, columns=headers)
     master_df.to_csv(output_dir / "final_benchmark_results.csv", index=False)
-    print("\n✓ Master results saved to eval_results/hotpot_qa/final_benchmark_results.csv")
+    print("\n✓ Master results saved to eval_results/popqa/final_benchmark_results.csv")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run HotpotQA Generative Benchmark")
+    parser = argparse.ArgumentParser(description="Run PopQA Generative Benchmark")
     parser.add_argument(
         "-n", "--num_samples", 
         type=int, 
@@ -249,4 +249,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    run(dataset_path="data/hotpotqa/hotpotqa_top30_hybrid_500.json", n=args.num_samples)
+    run(dataset_path="data/popqa/popqa_top30_hybrid_500.json", n=args.num_samples)

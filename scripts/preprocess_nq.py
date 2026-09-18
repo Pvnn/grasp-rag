@@ -16,6 +16,10 @@ def preprocess_nq():
     input_file = "data/nq/dev.jsonl"
     top_k = 30
     output_file = f"data/nq/nq_top{top_k}_hybrid_500.json"
+    if os.path.exists(output_file):
+        print(f"Skipping {output_file} as it already exists.")
+        return
+
 
     if not os.path.exists(input_file):
         print(f"Cannot find {input_file}. Downloading NQ Open with pre-retrieved DPR contexts...")

@@ -22,7 +22,12 @@ from src.eval.adapters import (
     RecompAdapter, 
     LLMLingua2Adapter,
     CompActAdapter, 
-    RecompExtractiveAdapter
+    RecompExtractiveAdapter,
+    FILCoAdapter,
+    SelectiveContextAdapter,
+    LLMLinguaAdapter,
+    LongLLMLinguaAdapter,
+    JinaRerankerAdapter
 )
 
 # --- Import Compressors ---
@@ -34,6 +39,11 @@ from src.compression.baselines import (
     LLMLingua2Compressor,
     CompactCompressor,
     RecompExtractiveCompressor,
+    FILCoCompressor,
+    SelectiveContextCompressor,
+    LLMLinguaCompressor,
+    LongLLMLinguaCompressor,
+    JinaRerankerCompressor
 )
 
 def load_tqa(dataset_path, n=20):

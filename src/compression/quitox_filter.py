@@ -26,7 +26,8 @@ class QuitoxCoarseFilter:
         self.tokenizer = T5Tokenizer.from_pretrained(model_name, legacy=False)
         self.model = T5ForConditionalGeneration.from_pretrained(
             model_name, 
-            dtype=torch.bfloat16
+            dtype=torch.bfloat16,
+            attn_implementation="eager"
         ).to(self.device)
         self.model.eval()
 

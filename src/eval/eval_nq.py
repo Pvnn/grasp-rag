@@ -26,7 +26,12 @@ from src.eval.adapters import (
     RecompAdapter, 
     LLMLingua2Adapter,
     CompActAdapter, 
-    RecompExtractiveAdapter
+    RecompExtractiveAdapter,
+    FILCoAdapter,
+    SelectiveContextAdapter,
+    LLMLinguaAdapter,
+    LongLLMLinguaAdapter,
+    JinaRerankerAdapter
 )
 
 # --- Import Compressors ---
@@ -38,6 +43,11 @@ from src.compression.baselines import (
     LLMLingua2Compressor,
     CompactCompressor,
     RecompExtractiveCompressor,
+    FILCoCompressor,
+    SelectiveContextCompressor,
+    LLMLinguaCompressor,
+    LongLLMLinguaCompressor,
+    JinaRerankerCompressor
 )
 
 def normalize_text(text):
@@ -190,6 +200,47 @@ def run(dataset_path, n):
     agg = run_and_save("HYBRID", HybridAdapter(hybrid))
     results_table.append(format_metrics("HYBRID", agg))
     del hybrid
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
+    # --- 9. FILCo Baseline ---
+    filco = FILCoCompressor()
+    agg = run_and_save("FILCo", FILCoAdapter(filco))
+    results_table.append(format_metrics("FILCo", agg))
+    del filco
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # --- 10. Selective Context Baseline ---
+    sc = SelectiveContextCompressor()
+    agg = run_and_save("SelectiveContext", SelectiveContextAdapter(sc))
+    results_table.append(format_metrics("SelectiveContext", agg))
+    del sc
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # --- 11. LLMLingua Baseline ---
+    llmlingua = LLMLinguaCompressor()
+    agg = run_and_save("LLMLingua", LLMLinguaAdapter(llmlingua))
+    results_table.append(format_metrics("LLMLingua", agg))
+    del llmlingua
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # --- 12. LongLLMLingua Baseline ---
+    longllmlingua = LongLLMLinguaCompressor()
+    agg = run_and_save("LongLLMLingua", LongLLMLinguaAdapter(longllmlingua))
+    results_table.append(format_metrics("LongLLMLingua", agg))
+    del longllmlingua
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # --- 13. Jina Reranker Baseline ---
+    jina = JinaRerankerCompressor()
+    agg = run_and_save("JinaReranker", JinaRerankerAdapter(jina))
+    results_table.append(format_metrics("JinaReranker", agg))
+    del jina
     gc.collect()
     torch.cuda.empty_cache()
 

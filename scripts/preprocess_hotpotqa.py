@@ -16,6 +16,10 @@ def preprocess_hotpotqa():
     # Update output file name to reflect the sampled size
     top_k = 30
     output_file = f"data/hotpotqa/hotpotqa_top{top_k}_hybrid_500.json"
+    if os.path.exists(output_file):
+        print(f"Skipping {output_file} as it already exists.")
+        return
+
 
     print("Downloading HotpotQA (distractor) from HuggingFace...")
     hf_dataset = load_dataset("hotpot_qa", "distractor", split="validation")

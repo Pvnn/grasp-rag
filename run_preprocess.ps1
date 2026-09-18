@@ -29,7 +29,9 @@ $scripts = @(
     "scripts\preprocess_tqa.py",
     "scripts\preprocess_hotpotqa.py",
     "scripts\preprocess_asqa.py",
-    "scripts\preprocess_nq.py"
+    "scripts\preprocess_nq.py",
+    "scripts\preprocess_musique.py",
+    "scripts\preprocess_popqa.py"
 )
 $total = $scripts.Count
 
@@ -62,14 +64,6 @@ for ($i = 0; $i -lt $total; $i++) {
         "[CRITICAL ERROR] Could not launch $scriptPath." | Out-File -FilePath $masterLog -Append -Encoding utf8
     }
     
-    # Sleep for 1 minute (60s) after every 2 scripts, unless it's the last script
-    $scriptNum = $i + 1
-    if (($scriptNum % 2 -eq 0) -and ($scriptNum -ne $total)) {
-        $sleepMsg = "[WAIT] Sleeping for 60 seconds to let the system cool down..."
-        Write-Host $sleepMsg -ForegroundColor DarkYellow
-        $sleepMsg | Out-File -FilePath $masterLog -Append -Encoding utf8
-        Start-Sleep -Seconds 60
-    }
 }
 
 $endMsg = "`n======================================================`n[INFO] All preprocessing scripts have finished."

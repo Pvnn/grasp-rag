@@ -46,6 +46,10 @@ def preprocess_alce_asqa():
     input_file = download_alce_asqa()
     top_k = 30
     output_file = f"data/asqa/asqa_top{top_k}_hybrid_500.json"
+    if os.path.exists(output_file):
+        print(f"Skipping {output_file} as it already exists.")
+        return
+
 
     print(f"Loading {input_file}...")
     with open(input_file, 'r', encoding='utf-8') as f:

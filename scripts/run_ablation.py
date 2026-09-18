@@ -36,7 +36,7 @@ class AblationAdapter:
         # Dynamically set graph parameters inside EP-EXIT before running
         if hasattr(self.compressor, "exit") and self.compressor.exit is not None:
             self.compressor.exit.locality_window = self.config.get("w", 2)
-            self.compressor.exit.similarity_threshold = self.config.get("delta", 0.45)
+            self.compressor.exit.similarity_threshold = self.config.get("delta", 0.6)
             
         result = self.compressor.compress(
             query=query,
@@ -113,9 +113,9 @@ def run_ablation(n=300):
 
         # --- Part 2B: Micro-Ablation Graph Window (NQ) [EP-EXIT Only] ---
         # w=0 covered by 1_Macro_NQ_VanillaEXIT, w=2 covered by 1_Macro_NQ_EPEXIT
-        ("2B_Window_1", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 1, "delta": 0.45}),
-        ("2B_Window_3", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 3, "delta": 0.45}),
-        ("2B_Window_5", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 5, "delta": 0.45}),
+        ("2B_Window_1", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 1, "delta": 0.6}),
+        ("2B_Window_3", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 3, "delta": 0.6}),
+        ("2B_Window_5", "Natural Questions", nq_data, {"use_coarse": False, "use_fine": True, "w": 5, "delta": 0.6}),
 
         # --- Part 3: Load Balancing Coarse vs Fine (NQ) ---
         # Balanced (r=0.8, tau=0.5) is implicitly covered by 1_Macro_NQ_GRASP (defaults).

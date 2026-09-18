@@ -24,6 +24,10 @@ def preprocess_tqa():
     os.makedirs("data/tqa", exist_ok=True)
     top_k = 30 
     output_file = f"data/tqa/tqa_top{top_k}_hybrid_500.json" 
+    if os.path.exists(output_file):
+        print(f"Skipping {output_file} as it already exists.")
+        return
+
 
     print("Streaming TriviaQA (rc) directly from HuggingFace...")
     hf_dataset = load_dataset("trivia_qa", "rc", split="validation", streaming=True)

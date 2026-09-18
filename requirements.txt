@@ -69,6 +69,8 @@ tabulate
 hf_xet
 rouge_score
 llmlingua
+wikipedia
+selective-context
 # Pre-download spacy model
 # Run after installing requirements:
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118

@@ -24,7 +24,7 @@ class EPExitCompressor:
         model_name="doubleyyh/exit-gemma-2b",
         threshold=0.5,
         embedding_model="all-MiniLM-L6-v2",
-        similarity_threshold=0.45,
+        similarity_threshold=0.6,
         locality_window=2
     ):
         print("Initializing EPExitCompressor...")

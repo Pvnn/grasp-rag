@@ -31,7 +31,7 @@ Date: $(Get-Date)
 $header | Out-File -FilePath $masterLog -Encoding utf8
 
 # Exact order of datasets (updated to match your Bash script)
-$datasets = @("hotpotqa", "nq", "tqa") # "2wiki" commented out
+$datasets = @("musique", "popqa") # TEMPORARY: "hotpotqa", "nq", "tqa", "2wiki" commented out
 $total = $datasets.Count
 
 for ($i = 0; $i -lt $total; $i++) {

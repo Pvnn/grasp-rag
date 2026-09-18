@@ -71,3 +71,58 @@ class RecompExtractiveAdapter:
         self.compressor = compressor
     def compress(self, query, docs):
         return {"compressed_docs": self.compressor.compress(query, docs)}
+
+class SelectiveContextAdapter:
+    def __init__(self, compressor):
+        self.compressor = compressor
+
+    def compress(self, query: str, docs):
+        result = self.compressor.compress(query, docs)
+        return {"compressed_docs": result}
+
+
+class FILCoAdapter:
+    def __init__(self, compressor):
+        self.compressor = compressor
+
+    def compress(self, query: str, docs):
+        result = self.compressor.compress(query, docs)
+        return {"compressed_docs": result}
+
+class LLMLinguaAdapter:
+    """
+    Adapter for LLMLingua (original).
+    Paper: Jiang et al., EMNLP 2023 — https://arxiv.org/abs/2310.05736
+    """
+    def __init__(self, compressor):
+        self.compressor = compressor
+
+    def compress(self, query: str, docs) -> dict:
+        result = self.compressor.compress(query, docs)
+        return {"compressed_docs": result}
+
+
+class LongLLMLinguaAdapter:
+    """
+    Adapter for LongLLMLingua.
+    Paper: Jiang et al., ACL 2024 — https://arxiv.org/abs/2310.06839
+    """
+    def __init__(self, compressor):
+        self.compressor = compressor
+
+    def compress(self, query: str, docs) -> dict:
+        result = self.compressor.compress(query, docs)
+        return {"compressed_docs": result}
+
+
+class JinaRerankerAdapter:
+    """
+    Adapter for JinaAI Reranker used as compressor.
+    Model: jinaai/jina-reranker-v2-base-multilingual
+    """
+    def __init__(self, compressor):
+        self.compressor = compressor
+
+    def compress(self, query: str, docs) -> dict:
+        result = self.compressor.compress(query, docs)
+        return {"compressed_docs": result}
