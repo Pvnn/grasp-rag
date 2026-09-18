@@ -9,7 +9,7 @@ echo "======================================================" > "$MASTER_LOG"
 echo "Starting Evaluation Pipeline with n=$N_SAMPLES" >> "$MASTER_LOG"
 echo "Date: $(date)" >> "$MASTER_LOG"
 echo "======================================================" >> "$MASTER_LOG"
-DATASETS=("musique" "popqa") # TEMPORARY: "hotpotqa" "nq" "tqa" "2wiki" "asqa" commented out
+DATASETS=("hotpotqa" "nq" "tqa" "musique" "popqa") # "2wiki" "asqa" commented out
 TOTAL_DATASETS=${#DATASETS[@]}
 for i in "${!DATASETS[@]}"; do
     DATASET="${DATASETS[$i]}"

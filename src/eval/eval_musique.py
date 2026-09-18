@@ -125,35 +125,35 @@ def run(dataset_path, n):
         return eval_result["aggregate"]
     
     # --- 1. NoOp Baseline ---
-    # agg = run_and_save("NoOp", NoOpCompressor())
-    # results_table.append(format_metrics("NoOp", agg))
+    agg = run_and_save("NoOp", NoOpCompressor())
+    results_table.append(format_metrics("NoOp", agg))
 
     # --- 2. EXIT Baseline ---
-    # exit_model = EXITCompressor(
-    #     token=token,
-    #     base_model="doubleyyh/exit-gemma-2b"
-    # )
-    # agg = run_and_save("EXIT", ExitAdapter(exit_model))
-    # results_table.append(format_metrics("EXIT", agg))
-    # del exit_model
-    # gc.collect()
-    # torch.cuda.empty_cache()
+    exit_model = EXITCompressor(
+        token=token,
+        base_model="doubleyyh/exit-gemma-2b"
+    )
+    agg = run_and_save("EXIT", ExitAdapter(exit_model))
+    results_table.append(format_metrics("EXIT", agg))
+    del exit_model
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # --- 3. RECOMP Extractive Baseline ---
-    # recomp_extr = RecompExtractiveCompressor()
-    # agg = run_and_save("RECOMP_EXTR", RecompExtractiveAdapter(recomp_extr))
-    # results_table.append(format_metrics("RECOMP_EXTR", agg))
-    # del recomp_extr
-    # gc.collect()
-    # torch.cuda.empty_cache()
+    recomp_extr = RecompExtractiveCompressor()
+    agg = run_and_save("RECOMP_EXTR", RecompExtractiveAdapter(recomp_extr))
+    results_table.append(format_metrics("RECOMP_EXTR", agg))
+    del recomp_extr
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # --- 4. LLMLingua2 Baseline ---
-    # llmlingua2 = LLMLingua2Compressor()
-    # agg = run_and_save("LLMLingua-2", LLMLingua2Adapter(llmlingua2))
-    # results_table.append(format_metrics("LLMLingua-2", agg))
-    # del llmlingua2
-    # gc.collect()
-    # torch.cuda.empty_cache()
+    llmlingua2 = LLMLingua2Compressor()
+    agg = run_and_save("LLMLingua-2", LLMLingua2Adapter(llmlingua2))
+    results_table.append(format_metrics("LLMLingua-2", agg))
+    del llmlingua2
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # --- 5. CompAct Baseline ---
     # compact = CompactCompressor(token=token)
@@ -180,12 +180,12 @@ def run(dataset_path, n):
     # torch.cuda.empty_cache()
 
     # --- 8. Hybrid Pipeline ---
-    # hybrid = HybridCompressor(exit_token=token)
-    # agg = run_and_save("HYBRID", HybridAdapter(hybrid))
-    # results_table.append(format_metrics("HYBRID", agg))
-    # del hybrid
-    # gc.collect()
-    # torch.cuda.empty_cache()
+    hybrid = HybridCompressor(exit_token=token)
+    agg = run_and_save("HYBRID", HybridAdapter(hybrid))
+    results_table.append(format_metrics("HYBRID", agg))
+    del hybrid
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
     # --- 9. FILCo Baseline ---
