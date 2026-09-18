@@ -38,7 +38,7 @@ class JinaRerankerCompressor(BaseCompressor):
             num_labels=1,
             trust_remote_code=True,
             device=device,
-            model_kwargs={"cache_dir": "./cache"},
+            cache_folder="./cache",
         )
 
         self.nlp = spacy.load(
