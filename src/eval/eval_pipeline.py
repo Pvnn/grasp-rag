@@ -59,13 +59,20 @@ class GenerativeEvaluator:
             total_orig_chars += len(orig_text)
 
             # 2. Compress the docs
+            t0 = time.time()
             result = self.compressor.compress(query, docs)
+            t1 = time.time()
+            
             compressed_docs = result.get("compressed_docs", [])
             comp_text = "\n".join([d.text for d in compressed_docs])
             total_comp_chars += len(comp_text)
 
             # 3. Generate Final Answer via LLM
             reader_res = self.reader.generate_answer(query, comp_text, strict_mode=True)
+            t2 = time.time()
+            
+            q_comp_lat = t1 - t0
+            q_read_lat = t2 - t1
             
             if isinstance(reader_res, dict):
                 pred_answer = reader_res.get("answer", "")
@@ -89,6 +96,10 @@ class GenerativeEvaluator:
             metrics["disambig_f1"] += q_f1
             metrics["prompt_tokens"] += q_prompt_tokens
             metrics["completion_tokens"] += q_comp_tokens
+            metrics.setdefault("compressor_latency", 0.0)
+            metrics.setdefault("reader_latency", 0.0)
+            metrics["compressor_latency"] += q_comp_lat
+            metrics["reader_latency"] += q_read_lat
 
             # 5. Build the Excel Row Data
             row_data = {
@@ -101,6 +112,8 @@ class GenerativeEvaluator:
                 "Disambig-F1": q_f1,
                 "Prompt Tokens": q_prompt_tokens,
                 "Gen Tokens": q_comp_tokens,
+                "Compressor Latency (s)": round(q_comp_lat, 2),
+                "Reader Latency (s)": round(q_read_lat, 2),
                 "Compression %": round((1 - (len(comp_text) / max(len(orig_text), 1))) * 100, 2),
                 "Final Prompt Context": comp_text,
             }
@@ -124,9 +137,13 @@ class GenerativeEvaluator:
             metrics["disambig_f1"] = (metrics["disambig_f1"] / n) * 100
             metrics["avg_prompt_tokens"] = metrics["prompt_tokens"] / n
             metrics["avg_completion_tokens"] = metrics["completion_tokens"] / n
+            metrics["avg_compressor_latency"] = metrics.get("compressor_latency", 0.0) / n
+            metrics["avg_reader_latency"] = metrics.get("reader_latency", 0.0) / n
         else:
             metrics["avg_prompt_tokens"] = 0.0
             metrics["avg_completion_tokens"] = 0.0
+            metrics["avg_compressor_latency"] = 0.0
+            metrics["avg_reader_latency"] = 0.0
 
         if total_orig_chars > 0:
             metrics["compression_ratio_chars"] = (1 - (total_comp_chars / total_orig_chars)) * 100
