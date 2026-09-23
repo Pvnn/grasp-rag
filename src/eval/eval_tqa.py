@@ -87,12 +87,18 @@ def run(dataset_path, n):
         ]
 
     def run_and_save(name, adapter):
-        print(f"\n[{name}] Running Benchmark...")
-        eval_result = GenerativeEvaluator(compressor=adapter, reader=reader).evaluate(dataset, top_k=10)
-        df = pd.DataFrame(eval_result["details"])
-        df.to_csv(output_dir / f"details_{name}.csv", index=False)
-        return eval_result["aggregate"]
+        try:
+            print(f"\n[{name}] Running Benchmark...")
+            eval_result = GenerativeEvaluator(compressor=adapter, reader=reader).evaluate(dataset, top_k=10)
+            df = pd.DataFrame(eval_result["details"])
+            df.to_csv(output_dir / f"details_{name}.csv", index=False)
+            return eval_result["aggregate"]
 
+        except Exception as e:
+            print(f'❌ Error evaluating {name}: {e}')
+            import traceback
+            traceback.print_exc()
+            return {'em': -1.0, 'token_f1': -1.0, 'rougeL': -1.0, 'disambig_f1': -1.0, 'compression_ratio_chars': -1.0, 'avg_prompt_tokens': -1.0, 'avg_latency_sec': -1.0, 'avg_compressor_latency': -1.0, 'avg_reader_latency': -1.0}
     # 1. NoOp Baseline
     agg = run_and_save("NoOp", NoOpCompressor())
     results_table.append(format_metrics("NoOp", agg))

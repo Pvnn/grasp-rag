@@ -113,17 +113,23 @@ def run(dataset_path, n):
         ]
 
     def run_and_save(name, adapter):
-        print(f"\n[{name}] Running Benchmark...")
-        # Pass top_k=10 so the evaluator matches the preprocessed docs seamlessly
-        eval_result = GenerativeEvaluator(compressor=adapter, reader=reader).evaluate(dataset, top_k=10)
+        try:
+            print(f"\n[{name}] Running Benchmark...")
+            # Pass top_k=10 so the evaluator matches the preprocessed docs seamlessly
+            eval_result = GenerativeEvaluator(compressor=adapter, reader=reader).evaluate(dataset, top_k=10)
         
-        df = pd.DataFrame(eval_result["details"])
-        csv_path = output_dir / f"details_{name}.csv"
-        df.to_csv(csv_path, index=False)
-        print(f"✓ Saved query details to {csv_path.name}")
+            df = pd.DataFrame(eval_result["details"])
+            csv_path = output_dir / f"details_{name}.csv"
+            df.to_csv(csv_path, index=False)
+            print(f"✓ Saved query details to {csv_path.name}")
         
-        return eval_result["aggregate"]
+            return eval_result["aggregate"]
     
+        except Exception as e:
+            print(f'❌ Error evaluating {name}: {e}')
+            import traceback
+            traceback.print_exc()
+            return {'em': -1.0, 'token_f1': -1.0, 'rougeL': -1.0, 'disambig_f1': -1.0, 'compression_ratio_chars': -1.0, 'avg_prompt_tokens': -1.0, 'avg_latency_sec': -1.0, 'avg_compressor_latency': -1.0, 'avg_reader_latency': -1.0}
     # --- 1. NoOp Baseline ---
     agg = run_and_save("NoOp", NoOpCompressor())
     results_table.append(format_metrics("NoOp", agg))
