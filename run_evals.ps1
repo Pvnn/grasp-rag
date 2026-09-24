@@ -36,6 +36,17 @@ $total = $datasets.Count
 
 for ($i = 0; $i -lt $total; $i++) {
     $dataset = $datasets[$i]
+
+    $outFolderName = $dataset
+    if ($dataset -eq 'hotpotqa') { $outFolderName = 'hotpot_qa' }
+    
+    $finalCsvPath = 'src\eval_results\' + $outFolderName + '\final_benchmark_results.csv'
+    if ((Test-Path $finalCsvPath) -and ((Get-Item $finalCsvPath).Length -gt 10)) {
+        Write-Host "SKIPPING $($dataset) : final_benchmark_results.csv already exists and is not empty." -ForegroundColor Magenta
+        "SKIPPED: $($dataset) (already processed)." | Out-File -FilePath $masterLog -Append -Encoding utf8
+        continue
+    }
+
     $scriptLog = "$logDir\${dataset}.log"
     $moduleName = "src.eval.eval_$dataset"
     

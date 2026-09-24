@@ -13,6 +13,18 @@ DATASETS=("hotpotqa" "nq" "tqa" "musique" "popqa") # "2wiki" "asqa" commented ou
 TOTAL_DATASETS=${#DATASETS[@]}
 for i in "${!DATASETS[@]}"; do
     DATASET="${DATASETS[$i]}"
+    
+    OUT_FOLDER_NAME=$DATASET
+    if [ "$DATASET" = "hotpotqa" ]; then
+        OUT_FOLDER_NAME="hotpot_qa"
+    fi
+    
+    FINAL_CSV="src/eval_results/${OUT_FOLDER_NAME}/final_benchmark_results.csv"
+    if [ -s "$FINAL_CSV" ]; then
+        echo "⏭️ SKIPPING $DATASET: final_benchmark_results.csv already exists and is not empty." | tee -a "$MASTER_LOG"
+        continue
+    fi
+
     SCRIPT_LOG="$LOG_DIR/${DATASET}.log"
     MODULE_NAME="src.eval.eval_${DATASET}"
     
